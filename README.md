@@ -40,7 +40,7 @@ cp .env.example .env
 
 # 3. Ejecutar el SQL en Supabase
 # Ir a SQL Editor en Supabase Dashboard
-# Ejecutar database/supabase_schema.sql
+# Ejecutar database/006_unified_schema.sql
 
 # 4. Iniciar desarrollo
 npm run dev
@@ -55,7 +55,7 @@ npm run dev
 
 ### Paso 2: Ejecutar schema SQL
 1. Ir a SQL Editor en el dashboard
-2. Copiar contenido de `database/supabase_schema.sql`
+2. Copiar contenido de `database/006_unified_schema.sql`
 3. Ejecutar
 
 ### Paso 3: Verificar
@@ -67,7 +67,7 @@ npm run dev
 ```
 CALCULADORA BENEFICIOS/
 ├── database/
-│   └── supabase_schema.sql    # Schema completo para Supabase
+│   └── 006_unified_schema.sql # Schema completo y unificado
 ├── src/
 │   ├── components/
 │   │   ├── Dashboard.tsx      # KPIs y gráficos

@@ -25,6 +25,7 @@ export default function TreatmentCatalogManager() {
   }, [])
 
   async function loadTreatments() {
+    if (!supabase) return
     setLoading(true)
     const { data } = await supabase
       .from('treatments_catalog')
@@ -63,6 +64,7 @@ export default function TreatmentCatalogManager() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!supabase) return
     
     const dataToSave = {
       name: formData.name,
@@ -74,16 +76,14 @@ export default function TreatmentCatalogManager() {
     }
 
     let error
+    const table = supabase.from('treatments_catalog')
     if (editingId) {
-      const res = await supabase
-        .from('treatments_catalog')
-        .update(dataToSave)
-        .eq('id', editingId)
+      // @ts-ignore
+      const res = await table.update(dataToSave as any).eq('id', editingId)
       error = res.error
     } else {
-      const res = await supabase
-        .from('treatments_catalog')
-        .insert(dataToSave)
+      // @ts-ignore
+      const res = await table.insert(dataToSave as any)
       error = res.error
     }
 
@@ -97,15 +97,12 @@ export default function TreatmentCatalogManager() {
   }
 
   async function handleDelete(id: string) {
+    if (!supabase) return
     if (confirm('¿Estás seguro de desactivar este tratamiento? (No se borrará el historial)')) {
-        // Soft delete ideally, but for now we might just set is_active = false if schema supports it, 
-        // or delete if it has no dependencies (but it likely has daily_treatments ref).
-        // Check schema: has is_active.
+        const table = supabase.from('treatments_catalog')
         
-        const { error } = await supabase
-            .from('treatments_catalog')
-            .update({ is_active: false })
-            .eq('id', id)
+        // @ts-ignore
+        const { error } = await table.update({ is_active: false } as any).eq('id', id)
             
         if (error) {
             alert('Error: ' + error.message)

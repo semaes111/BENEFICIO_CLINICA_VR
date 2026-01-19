@@ -24,6 +24,7 @@ export default function ProductCosts() {
   }, [])
 
   async function loadCosts() {
+    if (!supabase) return
     setLoading(true)
     const { data } = await supabase
       .from('product_costs')
@@ -37,6 +38,7 @@ export default function ProductCosts() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!supabase) return
     
     const { error } = await supabase.from('product_costs').insert({
       cost_date: formData.cost_date,
@@ -45,7 +47,7 @@ export default function ProductCosts() {
       quantity: parseFloat(formData.quantity) || 1,
       unit_cost: parseFloat(formData.unit_cost),
       notes: formData.notes || null
-    })
+    } as any)
     
     if (!error) {
       setShowForm(false)
@@ -62,6 +64,7 @@ export default function ProductCosts() {
   }
 
   async function handleDelete(id: string) {
+    if (!supabase) return
     if (confirm('¿Eliminar este coste?')) {
       await supabase.from('product_costs').delete().eq('id', id)
       loadCosts()

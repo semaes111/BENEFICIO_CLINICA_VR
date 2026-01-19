@@ -71,7 +71,7 @@ export default function DailySales() {
         cosmetic_amount: parseFloat(formData.cosmetic_amount) || 0,
         product_sales_amount: parseFloat(formData.product_sales_amount) || 0,
         notes: formData.notes || null
-      }, { onConflict: 'sale_date' })
+      } as any, { onConflict: 'sale_date' })
     
     if (!error) {
       setShowForm(false)
