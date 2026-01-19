@@ -1,4 +1,4 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -8,8 +8,8 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey)
 
 // Cliente Supabase (o null si no está configurado)
-export const supabase: SupabaseClient<Database> | null = isSupabaseConfigured 
-  ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
+export const supabase = isSupabaseConfigured
+  ? createClient<Database, 'calculadora'>(supabaseUrl, supabaseAnonKey, {
       db: {
         schema: 'calculadora'
       }
@@ -20,10 +20,11 @@ export const supabase: SupabaseClient<Database> | null = isSupabaseConfigured
 export async function getMonthlySummary(year: number, month: number) {
   if (!supabase) return null
   
+  // @ts-ignore
   const { data, error } = await supabase.rpc('calculate_monthly_summary', {
     p_year: year,
     p_month: month
-  })
+  } as any)
   
   if (error) {
     console.error('Error fetching monthly summary:', error)
