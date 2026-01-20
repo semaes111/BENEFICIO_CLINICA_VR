@@ -9,11 +9,7 @@ export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey)
 
 // Cliente Supabase (o null si no está configurado)
 export const supabase: SupabaseClient<Database> | null = isSupabaseConfigured 
-  ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
-      db: {
-        schema: 'calculadora'
-      }
-    })
+  ? createClient<Database>(supabaseUrl, supabaseAnonKey)
   : null
 
 // Helper para llamar funciones RPC
