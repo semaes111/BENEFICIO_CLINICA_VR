@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-import type { MonthlySummary, DailySale, MonthlyLaborCosts, TreatmentCatalog, DailyTreatment, DailySummary } from '@/types/database'
+import type { MonthlySummary, MonthlyLaborCosts, TreatmentCatalog, DailyTreatment, DailySummary } from '@/types/database'
 
 // Formatear números como moneda
 const formatCurrency = (value: number) => 
@@ -74,7 +71,7 @@ export default function Dashboard() {
   async function loadMonthlySummary() {
     if (!supabase) return
     const date = new Date(selectedDate)
-    const { data, error } = await supabase.rpc('calculate_monthly_summary', {
+    const { data } = await (supabase.rpc as any)('calculate_monthly_summary', {
       p_year: date.getFullYear(),
       p_month: date.getMonth() + 1
     })
@@ -117,7 +114,7 @@ export default function Dashboard() {
     const treatment = catalog.find(t => t.id === selectedTreatmentId)
     if (!treatment) return
 
-    const { error } = await supabase.from('daily_treatments').insert({
+    const { error } = await (supabase.from('daily_treatments') as any).insert({
       treatment_date: selectedDate,
       treatment_id: treatment.id,
       quantity: quantity,

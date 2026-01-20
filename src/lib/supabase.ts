@@ -16,7 +16,7 @@ export const supabase: SupabaseClient<Database> | null = isSupabaseConfigured
 export async function getMonthlySummary(year: number, month: number) {
   if (!supabase) return null
   
-  const { data, error } = await supabase.rpc('calculate_monthly_summary', {
+  const { data, error } = await (supabase.rpc as any)('calculate_monthly_summary', {
     p_year: year,
     p_month: month
   })

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
-import { supabase } from '@/lib/supabase'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import type { ProductCost } from '@/types/database'
 
 const formatCurrency = (value: number) => 
@@ -24,9 +24,12 @@ export default function ProductCosts() {
   }, [])
 
   async function loadCosts() {
+    if (!isSupabaseConfigured || !supabase) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
-    const { data } = await supabase
-      .from('product_costs')
+    const { data } = await (supabase.from('product_costs') as any)
       .select('*')
       .order('cost_date', { ascending: false })
       .limit(100)
@@ -37,8 +40,9 @@ export default function ProductCosts() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!supabase) return
     
-    const { error } = await supabase.from('product_costs').insert({
+    const { error } = await (supabase.from('product_costs') as any).insert({
       cost_date: formData.cost_date,
       product_name: formData.product_name,
       supplier: formData.supplier || null,
@@ -62,8 +66,9 @@ export default function ProductCosts() {
   }
 
   async function handleDelete(id: string) {
+    if (!supabase) return
     if (confirm('¿Eliminar este coste?')) {
-      await supabase.from('product_costs').delete().eq('id', id)
+      await (supabase.from('product_costs') as any).delete().eq('id', id)
       loadCosts()
     }
   }

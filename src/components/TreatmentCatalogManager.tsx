@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import type { TreatmentCatalog } from '@/types/database'
 
 const formatCurrency = (value: number) => 
@@ -25,9 +25,12 @@ export default function TreatmentCatalogManager() {
   }, [])
 
   async function loadTreatments() {
+    if (!isSupabaseConfigured || !supabase) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
-    const { data } = await supabase
-      .from('treatments_catalog')
+    const { data } = await (supabase.from('treatments_catalog') as any)
       .select('*')
       .order('name')
     
@@ -63,6 +66,7 @@ export default function TreatmentCatalogManager() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!supabase) return
     
     const dataToSave = {
       name: formData.name,
@@ -75,14 +79,12 @@ export default function TreatmentCatalogManager() {
 
     let error
     if (editingId) {
-      const res = await supabase
-        .from('treatments_catalog')
+      const res = await (supabase.from('treatments_catalog') as any)
         .update(dataToSave)
         .eq('id', editingId)
       error = res.error
     } else {
-      const res = await supabase
-        .from('treatments_catalog')
+      const res = await (supabase.from('treatments_catalog') as any)
         .insert(dataToSave)
       error = res.error
     }
@@ -97,13 +99,9 @@ export default function TreatmentCatalogManager() {
   }
 
   async function handleDelete(id: string) {
+    if (!supabase) return
     if (confirm('¿Estás seguro de desactivar este tratamiento? (No se borrará el historial)')) {
-        // Soft delete ideally, but for now we might just set is_active = false if schema supports it, 
-        // or delete if it has no dependencies (but it likely has daily_treatments ref).
-        // Check schema: has is_active.
-        
-        const { error } = await supabase
-            .from('treatments_catalog')
+        const { error } = await (supabase.from('treatments_catalog') as any)
             .update({ is_active: false })
             .eq('id', id)
             

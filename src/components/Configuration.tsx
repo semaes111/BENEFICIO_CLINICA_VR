@@ -18,10 +18,11 @@ export default function Configuration() {
 
   async function loadConfig() {
     setLoading(true)
+    if (!supabase) return setLoading(false)
     
     const [configRes, taxesRes] = await Promise.all([
-      supabase.from('company_config').select('*').limit(1).single(),
-      supabase.from('tax_rates').select('*').eq('is_active', true)
+      (supabase.from('company_config') as any).select('*').limit(1).single(),
+      (supabase.from('tax_rates') as any).select('*').eq('is_active', true)
     ])
     
     if (configRes.data) setConfig(configRes.data)
@@ -30,10 +31,10 @@ export default function Configuration() {
   }
 
   async function saveConfig() {
-    if (!config) return
+    if (!config || !supabase) return
     setSaving(true)
     
-    await supabase.from('company_config').update({
+    await (supabase.from('company_config') as any).update({
       company_name: config.company_name,
       cif: config.cif,
       num_employees: config.num_employees,
@@ -51,7 +52,8 @@ export default function Configuration() {
   }
 
   async function updateTaxRate(id: string, rate: number) {
-    await supabase.from('tax_rates').update({ rate_percentage: rate }).eq('id', id)
+    if (!supabase) return
+    await (supabase.from('tax_rates') as any).update({ rate_percentage: rate }).eq('id', id)
     loadConfig()
   }
 
