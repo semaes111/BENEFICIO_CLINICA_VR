@@ -1,33 +1,30 @@
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-import type { DailySale } from '@/types/database'
+
+interface DailySalesData {
+  treatment_date: string
+  gross_revenue: number
+  product_costs: number
+  gross_profit_before_overhead: number
+  cash_amount: number
+  card_amount: number
+  transfer_amount: number
+  num_treatments: number
+}
 
 const formatCurrency = (value: number) => 
   new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(value)
 
 // Demo data
-const demoSales: DailySale[] = [
-  { id: '1', sale_date: '2026-01-18', gross_amount: 1500, cash_amount: 500, card_amount: 800, transfer_amount: 200, medical_amount: 800, aesthetic_amount: 500, cosmetic_amount: 200, product_sales_amount: 0, notes: 'Demo', created_at: '', updated_at: '' },
-  { id: '2', sale_date: '2026-01-17', gross_amount: 2100, cash_amount: 700, card_amount: 1200, transfer_amount: 200, medical_amount: 1000, aesthetic_amount: 800, cosmetic_amount: 300, product_sales_amount: 0, notes: null, created_at: '', updated_at: '' },
+const demoSales: DailySalesData[] = [
+  { treatment_date: '2026-01-18', gross_revenue: 1500, product_costs: 300, gross_profit_before_overhead: 1200, cash_amount: 500, card_amount: 800, transfer_amount: 200, num_treatments: 5 },
+  { treatment_date: '2026-01-17', gross_revenue: 2100, product_costs: 450, gross_profit_before_overhead: 1650, cash_amount: 700, card_amount: 1200, transfer_amount: 200, num_treatments: 7 },
 ]
 
 export default function DailySales() {
-  const [sales, setSales] = useState<DailySale[]>([])
+  const [sales, setSales] = useState<DailySalesData[]>([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [formData, setFormData] = useState({
-    sale_date: format(new Date(), 'yyyy-MM-dd'),
-    gross_amount: '',
-    cash_amount: '',
-    card_amount: '',
-    transfer_amount: '',
-    medical_amount: '',
-    aesthetic_amount: '',
-    cosmetic_amount: '',
-    product_sales_amount: '',
-    notes: ''
-  })
 
   useEffect(() => {
     loadSales()
@@ -40,243 +37,139 @@ export default function DailySales() {
       setLoading(false)
       return
     }
+
+    // Obtener datos agregados por día desde daily_treatments
     const { data, error } = await supabase
-      .from('daily_sales')
+      .from('daily_summary')
       .select('*')
-      .order('sale_date', { ascending: false })
+      .order('treatment_date', { ascending: false })
       .limit(50)
     
-    if (!error && data) setSales(data)
-    else setSales(demoSales)
+    if (!error && data) {
+      setSales(data as DailySalesData[])
+    } else {
+      console.error('Error loading daily summary:', error)
+      setSales(demoSales)
+    }
     setLoading(false)
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!isSupabaseConfigured || !supabase) {
-      alert('Modo demo: Supabase no está configurado')
-      return
-    }
-    
-    const { error } = await supabase
-      .from('daily_sales')
-      .upsert({
-        sale_date: formData.sale_date,
-        gross_amount: parseFloat(formData.gross_amount) || 0,
-        cash_amount: parseFloat(formData.cash_amount) || 0,
-        card_amount: parseFloat(formData.card_amount) || 0,
-        transfer_amount: parseFloat(formData.transfer_amount) || 0,
-        medical_amount: parseFloat(formData.medical_amount) || 0,
-        aesthetic_amount: parseFloat(formData.aesthetic_amount) || 0,
-        cosmetic_amount: parseFloat(formData.cosmetic_amount) || 0,
-        product_sales_amount: parseFloat(formData.product_sales_amount) || 0,
-        notes: formData.notes || null
-      }, { onConflict: 'sale_date' })
-    
-    if (!error) {
-      setShowForm(false)
-      setFormData({
-        sale_date: format(new Date(), 'yyyy-MM-dd'),
-        gross_amount: '',
-        cash_amount: '',
-        card_amount: '',
-        transfer_amount: '',
-        medical_amount: '',
-        aesthetic_amount: '',
-        cosmetic_amount: '',
-        product_sales_amount: '',
-        notes: ''
-      })
-      loadSales()
-    }
-  }
-
-  async function handleDelete(id: string) {
-    if (!isSupabaseConfigured || !supabase) {
-      alert('Modo demo: Supabase no está configurado')
-      return
-    }
-    if (confirm('¿Eliminar esta venta?')) {
-      await supabase.from('daily_sales').delete().eq('id', id)
-      loadSales()
-    }
-  }
+  // Calcular totales
+  const totals = sales.reduce((acc, sale) => ({
+    gross_revenue: acc.gross_revenue + (sale.gross_revenue || 0),
+    product_costs: acc.product_costs + (sale.product_costs || 0),
+    gross_profit: acc.gross_profit + (sale.gross_profit_before_overhead || 0),
+    cash: acc.cash + (sale.cash_amount || 0),
+    card: acc.card + (sale.card_amount || 0),
+    transfer: acc.transfer + (sale.transfer_amount || 0),
+    treatments: acc.treatments + (sale.num_treatments || 0)
+  }), { gross_revenue: 0, product_costs: 0, gross_profit: 0, cash: 0, card: 0, transfer: 0, treatments: 0 })
 
   return (
     <div className="animate-fade-in">
       <header className="page-header flex justify-between items-center">
         <div>
           <h1>Ventas Diarias</h1>
-          <p>Registro de ingresos por día</p>
+          <p>Resumen automático de tratamientos registrados</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-          {showForm ? 'Cancelar' : '+ Nueva Venta'}
+        <button className="btn btn-primary" onClick={loadSales}>
+          🔄 Actualizar
         </button>
       </header>
 
-      {/* Form */}
-      {showForm && (
-        <div className="card mb-6">
-          <h3 className="chart-title">Registrar Venta</h3>
-          <form onSubmit={handleSubmit} className="mt-4">
-            <div className="grid-3">
-              <div className="form-group">
-                <label className="form-label">Fecha</label>
-                <input
-                  type="date"
-                  className="form-input"
-                  value={formData.sale_date}
-                  onChange={e => setFormData({...formData, sale_date: e.target.value})}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Importe Bruto (IVA incl.) *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="form-input"
-                  placeholder="0.00"
-                  value={formData.gross_amount}
-                  onChange={e => setFormData({...formData, gross_amount: e.target.value})}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Notas</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Observaciones..."
-                  value={formData.notes}
-                  onChange={e => setFormData({...formData, notes: e.target.value})}
-                />
-              </div>
-            </div>
-
-            <h4 className="mb-4 mt-4" style={{color: 'var(--color-text-secondary)'}}>Desglose por forma de pago</h4>
-            <div className="grid-3">
-              <div className="form-group">
-                <label className="form-label">Efectivo</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="form-input"
-                  placeholder="0.00"
-                  value={formData.cash_amount}
-                  onChange={e => setFormData({...formData, cash_amount: e.target.value})}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Tarjeta</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="form-input"
-                  placeholder="0.00"
-                  value={formData.card_amount}
-                  onChange={e => setFormData({...formData, card_amount: e.target.value})}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Transferencia</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="form-input"
-                  placeholder="0.00"
-                  value={formData.transfer_amount}
-                  onChange={e => setFormData({...formData, transfer_amount: e.target.value})}
-                />
-              </div>
-            </div>
-
-            <h4 className="mb-4 mt-4" style={{color: 'var(--color-text-secondary)'}}>Desglose por tipo de servicio</h4>
-            <div className="grid-3">
-              <div className="form-group">
-                <label className="form-label">Médico</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="form-input"
-                  placeholder="0.00"
-                  value={formData.medical_amount}
-                  onChange={e => setFormData({...formData, medical_amount: e.target.value})}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Estético</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="form-input"
-                  placeholder="0.00"
-                  value={formData.aesthetic_amount}
-                  onChange={e => setFormData({...formData, aesthetic_amount: e.target.value})}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Cosmético/Productos</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="form-input"
-                  placeholder="0.00"
-                  value={formData.product_sales_amount}
-                  onChange={e => setFormData({...formData, product_sales_amount: e.target.value})}
-                />
-              </div>
-            </div>
-
-            <button type="submit" className="btn btn-success">
-              Guardar Venta
-            </button>
-          </form>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="card p-4 bg-gradient-to-br from-emerald-900/40 to-teal-900/40 border border-emerald-500/20">
+          <p className="text-xs text-emerald-400 uppercase font-bold">Total Ingresos</p>
+          <p className="text-2xl font-bold text-emerald-300">{formatCurrency(totals.gross_revenue)}</p>
         </div>
-      )}
+        <div className="card p-4 bg-gradient-to-br from-red-900/40 to-rose-900/40 border border-red-500/20">
+          <p className="text-xs text-red-400 uppercase font-bold">Costes Productos</p>
+          <p className="text-2xl font-bold text-red-300">{formatCurrency(totals.product_costs)}</p>
+        </div>
+        <div className="card p-4 bg-gradient-to-br from-blue-900/40 to-cyan-900/40 border border-blue-500/20">
+          <p className="text-xs text-blue-400 uppercase font-bold">Beneficio Bruto</p>
+          <p className="text-2xl font-bold text-blue-300">{formatCurrency(totals.gross_profit)}</p>
+        </div>
+        <div className="card p-4 bg-gradient-to-br from-purple-900/40 to-pink-900/40 border border-purple-500/20">
+          <p className="text-xs text-purple-400 uppercase font-bold">Nº Tratamientos</p>
+          <p className="text-2xl font-bold text-purple-300">{totals.treatments}</p>
+        </div>
+      </div>
+
+      {/* Info Banner */}
+      <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 mb-6 flex items-center gap-3">
+        <span className="text-2xl">💡</span>
+        <p className="text-blue-300 text-sm">
+          Los datos se generan <strong>automáticamente</strong> desde los tratamientos registrados en el Dashboard. 
+          Añade tratamientos allí y aparecerán aquí agrupados por día.
+        </p>
+      </div>
 
       {/* Table */}
       <div className="card">
-        <div className="table-container">
-          <table>
+        <div className="p-4 border-b border-white/5 flex justify-between items-center">
+          <h3 className="font-bold text-lg">Historial por Día</h3>
+          <span className="text-xs text-muted">{sales.length} días con actividad</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
             <thead>
-              <tr>
-                <th>Fecha</th>
-                <th className="text-right">Bruto</th>
-                <th className="text-right">Efectivo</th>
-                <th className="text-right">Tarjeta</th>
-                <th className="text-right">Transferencia</th>
-                <th>Notas</th>
-                <th></th>
+              <tr className="bg-white/5">
+                <th className="p-4 text-left text-xs font-bold uppercase text-gray-400">Fecha</th>
+                <th className="p-4 text-center text-xs font-bold uppercase text-gray-400">Tratamientos</th>
+                <th className="p-4 text-right text-xs font-bold uppercase text-gray-400">Ingresos</th>
+                <th className="p-4 text-right text-xs font-bold uppercase text-gray-400">Costes</th>
+                <th className="p-4 text-right text-xs font-bold uppercase text-gray-400">Beneficio</th>
+                <th className="p-4 text-right text-xs font-bold uppercase text-gray-400">Efectivo</th>
+                <th className="p-4 text-right text-xs font-bold uppercase text-gray-400">Tarjeta</th>
+                <th className="p-4 text-right text-xs font-bold uppercase text-gray-400">Transfer.</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-white/5">
               {loading ? (
-                <tr><td colSpan={7} className="text-center">Cargando...</td></tr>
+                <tr><td colSpan={8} className="p-8 text-center text-muted">Cargando...</td></tr>
               ) : sales.length === 0 ? (
-                <tr><td colSpan={7} className="text-center text-muted">No hay ventas registradas</td></tr>
+                <tr>
+                  <td colSpan={8} className="p-12 text-center">
+                    <div className="text-4xl mb-4 opacity-30">📝</div>
+                    <p className="text-muted">No hay ventas registradas</p>
+                    <p className="text-xs text-muted mt-2">Añade tratamientos desde el Dashboard para verlos aquí</p>
+                  </td>
+                </tr>
               ) : (
                 sales.map(sale => (
-                  <tr key={sale.id}>
-                    <td>{format(new Date(sale.sale_date), 'dd/MM/yyyy')}</td>
-                    <td className="text-right">{formatCurrency(sale.gross_amount)}</td>
-                    <td className="text-right">{formatCurrency(sale.cash_amount)}</td>
-                    <td className="text-right">{formatCurrency(sale.card_amount)}</td>
-                    <td className="text-right">{formatCurrency(sale.transfer_amount)}</td>
-                    <td className="text-muted">{sale.notes || '-'}</td>
-                    <td>
-                      <button 
-                        className="btn btn-danger" 
-                        style={{padding: '6px 12px', fontSize: '0.75rem'}}
-                        onClick={() => handleDelete(sale.id)}
-                      >
-                        Eliminar
-                      </button>
+                  <tr key={sale.treatment_date} className="hover:bg-white/5 transition-colors">
+                    <td className="p-4 font-medium">{format(new Date(sale.treatment_date), 'dd/MM/yyyy')}</td>
+                    <td className="p-4 text-center">
+                      <span className="px-2 py-1 bg-purple-500/20 text-purple-300 rounded-full text-xs font-bold">
+                        {sale.num_treatments}
+                      </span>
                     </td>
+                    <td className="p-4 text-right font-medium text-white">{formatCurrency(sale.gross_revenue)}</td>
+                    <td className="p-4 text-right text-red-400">{formatCurrency(sale.product_costs)}</td>
+                    <td className="p-4 text-right font-bold text-emerald-400">{formatCurrency(sale.gross_profit_before_overhead)}</td>
+                    <td className="p-4 text-right text-gray-400">{formatCurrency(sale.cash_amount || 0)}</td>
+                    <td className="p-4 text-right text-gray-400">{formatCurrency(sale.card_amount || 0)}</td>
+                    <td className="p-4 text-right text-gray-400">{formatCurrency(sale.transfer_amount || 0)}</td>
                   </tr>
                 ))
               )}
             </tbody>
+            {sales.length > 0 && (
+              <tfoot className="bg-white/5 border-t border-white/10">
+                <tr className="font-bold">
+                  <td className="p-4">TOTALES</td>
+                  <td className="p-4 text-center text-purple-300">{totals.treatments}</td>
+                  <td className="p-4 text-right text-white">{formatCurrency(totals.gross_revenue)}</td>
+                  <td className="p-4 text-right text-red-400">{formatCurrency(totals.product_costs)}</td>
+                  <td className="p-4 text-right text-emerald-400">{formatCurrency(totals.gross_profit)}</td>
+                  <td className="p-4 text-right text-gray-400">{formatCurrency(totals.cash)}</td>
+                  <td className="p-4 text-right text-gray-400">{formatCurrency(totals.card)}</td>
+                  <td className="p-4 text-right text-gray-400">{formatCurrency(totals.transfer)}</td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       </div>
